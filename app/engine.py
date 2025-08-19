@@ -33,23 +33,18 @@ class Engine:
                 self.proc = None
 
     # single position, robust, returns raw info dict
-    def analyse_safe(self, board: chess.Board, depth: int = DEFAULT_DEPTH):
+    def analyse_safe(self, board: chess.Board, depth: int = DEFAULT_DEPTH, multipv: int = 1):
         assert self.proc, "Engine not started"
-        attempts = [
-            lambda: self.proc.analyse(board, chess.engine.Limit(depth=depth)),
-            lambda: self.proc.analyse(board, chess.engine.Limit(time=0.5)),
-            lambda: self.proc.analyse(board, chess.engine.Limit(depth=max(8, depth-4))),
-            lambda: self.proc.analyse(board, chess.engine.Limit(nodes=400_000)),
-        ]
-        last_err = None
-        for fn in attempts:
-            try:
-                r = fn()
-                if r and "score" in r:
-                    return r
-            except Exception as e:
-                last_err = e
-        raise RuntimeError(f"Engine analyse failed: {last_err}")
+        try:
+            result = self.proc.analyse(board, chess.engine.Limit(depth=depth), multipv=multipv)
+            if isinstance(result, list):
+                return result[0]  # just return the top line
+            return result
+        except Exception as e:
+            print(f"[!] Engine error at depth {depth}: {e}")
+            return {"score": chess.engine.PovScore(chess.engine.Cp(0), board.turn)}
+
+
 
     # multipv best lines
     def best_lines(self, board: chess.Board, multipv=3, depth: int = DEFAULT_DEPTH):
